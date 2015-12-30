@@ -13,9 +13,9 @@ import java.util.logging.Logger;
  */
 public class AcceptThread extends Thread {
     public static final Logger logger = Logger.getLogger(AcceptThread.class.getName());
-    ServerSocket serverSocket;
-    Set<SocketThread> socketThreadSet = new HashSet<>();
-    SocketThread unpairedThread;
+    private final ServerSocket serverSocket;
+    private final Set<SocketThread> socketThreadSet = new HashSet<>();
+    private SocketThread unpairedThread;
 
     public AcceptThread(ServerSocket serverSocket) {
         this.serverSocket = serverSocket;
@@ -26,7 +26,8 @@ public class AcceptThread extends Thread {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 Socket socket = serverSocket.accept();
-                SocketThread socketThread = new SocketThread(socket);
+                SocketThread socketThread = new SocketThread(socket, socketThreadSet);
+                socketThread.start();
 
                 synchronized (socketThreadSet) {
                     socketThreadSet.add(socketThread);
