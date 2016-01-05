@@ -12,7 +12,8 @@ import java.util.logging.Logger;
  * Created by anton on 29.12.15.
  */
 public class AcceptThread extends Thread {
-    public static final Logger logger = Logger.getLogger(AcceptThread.class.getName());
+    private static final Logger logger = Logger.getLogger(AcceptThread.class.getName());
+
     private final ServerSocket serverSocket;
     private final Set<SocketThread> socketThreadSet = new HashSet<>();
     private SocketThread unpairedThread;
@@ -33,9 +34,15 @@ public class AcceptThread extends Thread {
                     socketThreadSet.add(socketThread);
                 }
 
+                SessionContext context = new SessionContext();
+                context.setPhase(SessionContext.SessionPhase.SETUP_WORLD);
                 if(unpairedThread == null) {
+                    context.setPlayerSide(SessionContext.PlayerSide.LEFT);
+                    socketThread.setContext(context);
                     unpairedThread = socketThread;
                 } else {
+                    context.setPlayerSide(SessionContext.PlayerSide.RIGHT);
+                    socketThread.setContext(context);
                     unpairedThread.registerPairedThread(socketThread);
                     socketThread.registerPairedThread(unpairedThread);
                     unpairedThread = null;
@@ -44,9 +51,10 @@ public class AcceptThread extends Thread {
         } catch (IOException e) {
             logger.log(Level.INFO, "Exception in accept thread", e);
         }
+        closeAllSockets();
     }
 
-    public void closeAllSockets() {
+    private void closeAllSockets() {
         synchronized (socketThreadSet) {
             socketThreadSet.stream().forEach((thread) -> {
                 try {

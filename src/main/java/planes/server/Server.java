@@ -10,13 +10,16 @@ import java.net.ServerSocket;
  */
 public class Server {
     public static final String SEP=System.lineSeparator();
+
+    ServerSocket serverSocket;
     AcceptThread acceptThread;
 
     public static void main(String[] args) throws IOException {
-        new Server().start();
+        Server server = new Server();
+        server.inputLoop();
     }
 
-    public Server() throws IOException {
+    private void inputLoop() throws IOException {
         boolean exit = false;
         BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
         while (!exit) {
@@ -27,17 +30,19 @@ public class Server {
                     case "start":
                         if(acceptThread == null) {
                             start();
-                            System.out.println("server started" + SEP);
+                            System.out.println("server started");
                         } else {
-                            System.out.println("already started" + SEP);
+                            System.out.println("already started");
                         }
                         break;
                     case "stop":
                         if (acceptThread != null) {
                             stop();
-                            System.out.println("server stopped" + SEP);
+                            serverSocket.close();
+                            System.out.println("server stopped");
+                            return;
                         } else {
-                            System.out.println("nothing to stop" + SEP);
+                            System.out.println("nothing to stop");
                         }
                         break;
                     default:
@@ -48,16 +53,17 @@ public class Server {
     }
 
     private void stop() {
-        acceptThread.closeAllSockets();
+        acceptThread.interrupt();
+        acceptThread = null;
     }
 
     private void start() throws IOException {
-        ServerSocket serverSocket = new ServerSocket(9998);
+        serverSocket = new ServerSocket(9998);
         acceptThread = new AcceptThread(serverSocket);
         acceptThread.start();
     }
 
     private void showHint() {
-        System.out.println("Print <start> to start server, or <stop> to stop." + SEP);
+        System.out.println("Print <start> to start server, or <stop> to stop:");
     }
 }

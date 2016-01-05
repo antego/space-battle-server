@@ -1,5 +1,6 @@
 package planes.server;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -10,10 +11,22 @@ import java.net.Socket;
  */
 public class ProtocolUtils {
     private static final Integer MESSAGE_LENGTH = 4;
-    public static void processMessage(InputStream inputStream, OutputStream outputStream) throws IOException {
-        byte[] message = readMessage(inputStream);
-        message = doBusiness(message);
-        writeMessage(outputStream, message);
+
+    public static void processMessage(Socket masterSocket, Socket slaveSocket, SessionContext context) throws IOException {
+        switch (context.getPhase()) {
+            case SETUP_WORLD:
+                setupWorld(masterSocket, context);
+                context.setPhase(SessionContext.SessionPhase.GAME);
+                break;
+            case GAME:
+                byte[] message = readMessage(masterSocket.getInputStream());
+                message = doBusiness(message);
+                writeMessage(slaveSocket.getOutputStream(), message);
+        }
+    }
+
+    private static void setupWorld(Socket masterSocket, SessionContext context) throws IOException {
+        masterSocket.getOutputStream().write(context.getPlayerSide() == SessionContext.PlayerSide.LEFT ? new byte[]{0} : new byte[]{1});
     }
 
     private static void writeMessage(OutputStream outputStream, byte[] message) throws IOException {
@@ -27,10 +40,14 @@ public class ProtocolUtils {
     private static byte[] readMessage(InputStream inputStream) throws IOException {
         byte[] message = new byte[MESSAGE_LENGTH];
         int len = inputStream.read(message);
+        if (len == -1) {
+            //todo exit without exception
+            throw new EOFException();
+        }
         while (len < MESSAGE_LENGTH) {
             len += inputStream.read(message, len, MESSAGE_LENGTH - len);
         }
-        System.out.println(len + Server.SEP);
+        System.out.println(len);
         return message;
     }
 
