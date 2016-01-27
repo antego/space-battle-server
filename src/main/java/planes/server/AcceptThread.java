@@ -28,14 +28,16 @@ public class AcceptThread extends Thread {
             while (!Thread.currentThread().isInterrupted()) {
                 Socket socket = serverSocket.accept();
                 SocketThread socketThread = new SocketThread(socket, socketThreadSet);
-                socketThread.start();
 
-                synchronized (socketThreadSet) {
-                    socketThreadSet.add(socketThread);
-                }
 
                 SessionContext context = new SessionContext();
                 context.setPhase(SessionContext.SessionPhase.SETUP_WORLD);
+                context.setMasterThread(socketThread);
+                if (unpairedThread != null && !unpairedThread.isClientAvaible()) {
+                    unpairedThread.closeSocket();
+                    socketThreadSet.remove(unpairedThread);
+                    unpairedThread = null;
+                }
                 if(unpairedThread == null) {
                     context.setPlayerSide(SessionContext.PlayerSide.LEFT);
                     socketThread.setContext(context);
@@ -47,14 +49,19 @@ public class AcceptThread extends Thread {
                     socketThread.registerPairedThread(unpairedThread);
                     unpairedThread = null;
                 }
+                socketThread.start();
+                synchronized (socketThreadSet) {
+                    socketThreadSet.add(socketThread);
+                }
             }
+
         } catch (IOException e) {
             logger.log(Level.INFO, "Exception in accept thread", e);
         }
         closeAllSockets();
     }
 
-    private void closeAllSockets() {
+    public void closeAllSockets() {
         synchronized (socketThreadSet) {
             socketThreadSet.stream().forEach((thread) -> {
                 try {

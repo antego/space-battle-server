@@ -54,6 +54,7 @@ public class Server {
 
     private void stop() {
         acceptThread.interrupt();
+        acceptThread.closeAllSockets();
         acceptThread = null;
     }
 

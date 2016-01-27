@@ -5,54 +5,97 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Arrays;
 
 /**
  * Created by anton on 29.12.15.
  */
 public class ProtocolUtils {
-    private static final Integer MESSAGE_LENGTH = 4;
-
-    public static void processMessage(Socket masterSocket, Socket slaveSocket, SessionContext context) throws IOException {
-        switch (context.getPhase()) {
-            case SETUP_WORLD:
-                setupWorld(masterSocket, context);
-                context.setPhase(SessionContext.SessionPhase.GAME);
-                break;
-            case GAME:
-                byte[] message = readMessage(masterSocket.getInputStream());
-                message = doBusiness(message);
-                writeMessage(slaveSocket.getOutputStream(), message);
+    public static void processMessage(SessionContext context) throws IOException, InterruptedException {
+        byte[] message = null;
+        while (true) {
+            doBusiness(message, context);
+            if (context.getPhase() != SessionContext.SessionPhase.SETUP_WORLD)
+            message = readMessage(context);
         }
     }
 
-    private static void setupWorld(Socket masterSocket, SessionContext context) throws IOException {
-        masterSocket.getOutputStream().write(context.getPlayerSide() == SessionContext.PlayerSide.LEFT ? new byte[]{0} : new byte[]{1});
+    private static void setupWorld(SessionContext context) throws IOException {
+        context.getMasterThread().getSocket().getOutputStream().write(context.getPlayerSide() == SessionContext.PlayerSide.LEFT ? new byte[]{0} : new byte[]{1});
+    }
+
+    private static byte[] readMessage(SessionContext context) throws IOException {
+        InputStream inputStream = context.getMasterThread().getSocket().getInputStream();
+        byte[] messageType = new byte[1];
+        int len = inputStream.read(messageType);
+        if (len == -1) {
+            //todo exit without exception
+            throw new EOFException();
+        }
+        byte[] message = new byte[getMessageLength(messageType[0])];
+        len = inputStream.read(message);
+        if (len == -1) {
+            //todo exit without exception
+            throw new EOFException();
+        }
+        while (len < getMessageLength(messageType[0])) {
+            len += inputStream.read(message, len, getMessageLength(messageType[0]) - len);
+        }
+        System.out.println(len);
+        return concat(messageType, message);
+    }
+
+    private static void doBusiness(byte[] message, SessionContext context) throws IOException, InterruptedException {
+        switch (context.getPhase()) {
+            case SETUP_WORLD: {
+                synchronized (context.slaveMonitor) {
+                    while (context.getSlaveThread() == null) {
+                        context.slaveMonitor.wait();
+                    }
+                }
+                setupWorld(context);
+                context.setPhase(SessionContext.SessionPhase.GAME);
+                break;
+            }
+            case GAME: {
+                writeMessage(context.getSlaveThread().getSocket().getOutputStream(), message);
+            }
+        }
     }
 
     private static void writeMessage(OutputStream outputStream, byte[] message) throws IOException {
         outputStream.write(message);
     }
 
-    private static byte[] doBusiness(byte[] message) {
-        return message;
-    }
-
-    private static byte[] readMessage(InputStream inputStream) throws IOException {
-        byte[] message = new byte[MESSAGE_LENGTH];
-        int len = inputStream.read(message);
-        if (len == -1) {
-            //todo exit without exception
-            throw new EOFException();
+    //todo fire and shoot event
+    private static int getMessageLength(byte messageType) {
+        switch (messageType){
+            case 0:
+                return 20; //status
+            case 1:
+                return 4; //rotate
+            case 2:
+                return 16; //fire
+            case 3:
+                return 0; //shoot
+            case 4:
+                return 4; //accel
+            default:
+                return -1;
         }
-        while (len < MESSAGE_LENGTH) {
-            len += inputStream.read(message, len, MESSAGE_LENGTH - len);
-        }
-        System.out.println(len);
-        return message;
     }
 
     //TODO proper handshake
     public static boolean doHandshake(Socket socket) {
         return true;
+    }
+    
+    private static byte[] concat(byte[] a, byte[] b) {
+        int aLen = a.length;
+        int bLen = b.length;
+        byte[] c = new byte[aLen+bLen];
+        System.arraycopy(a, 0, c, 0, aLen);
+        System.arraycopy(b, 0, c, aLen, bLen);
+        return c;
     }
 }

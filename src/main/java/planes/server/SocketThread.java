@@ -14,14 +14,13 @@ public class SocketThread extends Thread {
     private static final Logger logger = Logger.getLogger(SocketThread.class.getName());
     private final Socket sourceSocket;
     private final Object pairedThreadLock = new Object();
-    private SocketThread pairedThread;
+    private volatile SocketThread pairedThread;
 
     private SessionContext context;
 
     private Set<SocketThread> socketThreadSet;
     public SocketThread(Socket sourceSocket, Set<SocketThread> socketThreadSet) {
         this.sourceSocket = sourceSocket;
-        this.context = context;
         this.socketThreadSet = socketThreadSet;
     }
 
@@ -32,18 +31,12 @@ public class SocketThread extends Thread {
                 return;
             }
             while (!Thread.currentThread().isInterrupted() && !socket.isClosed()) {
-                synchronized (pairedThreadLock) {
-                    while (pairedThread == null) {
-                        pairedThreadLock.wait();
-                    }
-                }
-                ProtocolUtils.processMessage(socket, pairedThread.getSocket(), context);
-                //TODO shutdown thread on pair thread stop
+                ProtocolUtils.processMessage(context);
             }
         } catch (IOException e) {
             logger.log(Level.INFO, "exception in socket thread", e);
         } catch (InterruptedException e) {
-
+            e.printStackTrace();
         }
         closePairedThread();
         deleteFromThreadSet();
@@ -80,6 +73,7 @@ public class SocketThread extends Thread {
         }
         synchronized (pairedThreadLock) {
             this.pairedThread = pairedThread;
+            context.setSlaveThread(pairedThread);
             pairedThreadLock.notify();
         }
     }
@@ -92,5 +86,10 @@ public class SocketThread extends Thread {
         if(!sourceSocket.isClosed()) {
             sourceSocket.close();
         }
+    }
+
+    public boolean isClientAvaible() throws IOException {
+        int len = sourceSocket.getInputStream().read(new byte[0]);
+        return len != -1;
     }
 }
