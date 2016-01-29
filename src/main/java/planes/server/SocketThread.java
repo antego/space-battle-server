@@ -15,15 +15,16 @@ public class SocketThread extends Thread {
     private final Socket sourceSocket;
     private final Object pairedThreadLock = new Object();
     private volatile SocketThread pairedThread;
+    private Long closeTime;
 
     private SessionContext context;
 
     private Set<SocketThread> socketThreadSet;
+
     public SocketThread(Socket sourceSocket, Set<SocketThread> socketThreadSet) {
         this.sourceSocket = sourceSocket;
         this.socketThreadSet = socketThreadSet;
     }
-
     @Override
     public void run() {
         try (Socket socket = this.sourceSocket) {
@@ -37,9 +38,10 @@ public class SocketThread extends Thread {
             logger.log(Level.INFO, "exception in socket thread", e);
         } catch (InterruptedException e) {
             e.printStackTrace();
+        } finally {
+            closePairedThread();
+            deleteFromThreadSet();
         }
-        closePairedThread();
-        deleteFromThreadSet();
     }
 
     public SessionContext getContext() {
@@ -59,10 +61,11 @@ public class SocketThread extends Thread {
     private void closePairedThread() {
         if (pairedThread != null) {
             try {
-                pairedThread.closeSocket();
+                pairedThread.getSocket().getOutputStream().write(new byte[]{5});
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            pairedThread.setCloseTime(System.currentTimeMillis());
             pairedThread = null;
         }
     }
@@ -82,14 +85,31 @@ public class SocketThread extends Thread {
         return sourceSocket;
     }
 
-    public void closeSocket() throws IOException {
-        if(!sourceSocket.isClosed()) {
+    public Long getCloseTime() {
+        return closeTime;
+    }
+
+    public void setCloseTime(Long closeTime) {
+        this.closeTime = closeTime;
+    }
+
+    public void closeSocket() {
+        try {
             sourceSocket.close();
+        } catch (IOException e) {
+            logger.log(Level.INFO, "exception on socket closing");
         }
     }
 
-    public boolean isClientAvaible() throws IOException {
-        int len = sourceSocket.getInputStream().read(new byte[0]);
-        return len != -1;
+    public boolean isClientAvailable() {
+        try {
+            Thread.sleep(5);
+            sourceSocket.getOutputStream().write(new byte[]{127});
+        } catch (IOException e) {
+            return false;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return true;
     }
 }

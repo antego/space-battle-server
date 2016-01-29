@@ -7,9 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,7 +32,7 @@ public class Client {
     ArrayList<Socket> secondPart;
     ArrayList<long[]> wavePeriods = new ArrayList<>();
     long sendTime;
-    long sendedMessagesCount;
+    long sentMessagesCount;
     private long startTime;
     private long endTime;
 
@@ -132,7 +130,7 @@ public class Client {
     }
 
     private void printResults() {
-        System.out.println((double)(1000 * sendedMessagesCount) / (endTime - startTime) / CLIENTS_COUNT + " msg/sec");
+        System.out.println((double)(1000 * sentMessagesCount) / (endTime - startTime) / CLIENTS_COUNT + " msg/sec");
     }
 
     private void doInitialSend() {
@@ -142,7 +140,7 @@ public class Client {
                 Socket socket = firstPart.get(i);
                 byte[] message = {1,1,0,1};
                 socket.getOutputStream().write(message);
-                sendedMessagesCount++;
+                sentMessagesCount++;
                 initialTimes[i] = System.currentTimeMillis();
             }
             System.out.println();
@@ -187,7 +185,7 @@ public class Client {
                         }
 //                        System.out.println("received " + Arrays.toString(message));
                         socket.getOutputStream().write(message);
-                        sendedMessagesCount++;
+                        sentMessagesCount++;
                         intervals[i] = System.currentTimeMillis();
                     }
                     wavePeriods.add(intervals);

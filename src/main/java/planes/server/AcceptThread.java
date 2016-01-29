@@ -5,6 +5,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -17,9 +20,21 @@ public class AcceptThread extends Thread {
     private final ServerSocket serverSocket;
     private final Set<SocketThread> socketThreadSet = new HashSet<>();
     private SocketThread unpairedThread;
+    private ScheduledExecutorService setCleaner = Executors.newSingleThreadScheduledExecutor();
 
     public AcceptThread(ServerSocket serverSocket) {
         this.serverSocket = serverSocket;
+        setCleaner.scheduleAtFixedRate(() -> {
+            synchronized (socketThreadSet) {
+                socketThreadSet.stream()
+                                .filter(st -> st.getCloseTime() != null &&
+                                        System.currentTimeMillis() - st.getCloseTime() > 10_000)
+                                .forEach(st -> {
+                                    st.closeSocket();
+                                    socketThreadSet.remove(st);
+                                });
+            }
+        }, 0, 10, TimeUnit.SECONDS);
     }
 
     @Override
@@ -33,8 +48,9 @@ public class AcceptThread extends Thread {
                 SessionContext context = new SessionContext();
                 context.setPhase(SessionContext.SessionPhase.SETUP_WORLD);
                 context.setMasterThread(socketThread);
-                if (unpairedThread != null && !unpairedThread.isClientAvaible()) {
+                if (unpairedThread != null && !unpairedThread.isClientAvailable()) {
                     unpairedThread.closeSocket();
+                    unpairedThread.interrupt();
                     socketThreadSet.remove(unpairedThread);
                     unpairedThread = null;
                 }
@@ -59,16 +75,13 @@ public class AcceptThread extends Thread {
             logger.log(Level.INFO, "Exception in accept thread", e);
         }
         closeAllSockets();
+        setCleaner.shutdown();
     }
 
     public void closeAllSockets() {
         synchronized (socketThreadSet) {
             socketThreadSet.stream().forEach((thread) -> {
-                try {
-                    thread.closeSocket();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                thread.closeSocket();
             });
         }
     }

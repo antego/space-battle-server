@@ -80,6 +80,8 @@ public class ProtocolUtils {
                 return 0; //shoot
             case 4:
                 return 4; //accel
+            case 5:
+                return 0; //end session
             default:
                 return -1;
         }
