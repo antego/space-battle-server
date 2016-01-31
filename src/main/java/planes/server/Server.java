@@ -4,19 +4,32 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Created by anton on 29.12.15.
  */
 public class Server {
+    public static final Logger logger = Logger.getLogger(Server.class.getName());
+
     public static final String SEP=System.lineSeparator();
+    private final int serverPort;
 
     ServerSocket serverSocket;
     AcceptThread acceptThread;
 
     public static void main(String[] args) throws IOException {
-        Server server = new Server();
+        if (args.length < 1) {
+            logger.log(Level.SEVERE, "invalid arguments, please specify a port");
+            throw new IllegalArgumentException();
+        }
+        Server server = new Server(Integer.parseInt(args[0]));
         server.inputLoop();
+    }
+
+    private Server(int serverPort) {
+        this.serverPort = serverPort;
     }
 
     private void inputLoop() throws IOException {

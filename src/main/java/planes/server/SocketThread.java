@@ -11,7 +11,6 @@ import java.util.logging.Logger;
  * Created by anton on 29.12.15.
  */
 public class SocketThread extends Thread {
-    private static final Logger logger = Logger.getLogger(SocketThread.class.getName());
     private final Socket sourceSocket;
     private final Object pairedThreadLock = new Object();
     private volatile SocketThread pairedThread;
@@ -35,7 +34,7 @@ public class SocketThread extends Thread {
                 ProtocolUtils.processMessage(context);
             }
         } catch (IOException e) {
-            logger.log(Level.INFO, "exception in socket thread", e);
+            Server.logger.log(Level.INFO, "exception in socket thread", e);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -97,13 +96,13 @@ public class SocketThread extends Thread {
         try {
             sourceSocket.close();
         } catch (IOException e) {
-            logger.log(Level.INFO, "exception on socket closing");
+            Server.logger.log(Level.INFO, "exception on socket closing");
         }
     }
 
     public boolean isClientAvailable() {
         try {
-            Thread.sleep(5);
+            Thread.sleep(20);
             sourceSocket.getOutputStream().write(new byte[]{127});
         } catch (IOException e) {
             return false;

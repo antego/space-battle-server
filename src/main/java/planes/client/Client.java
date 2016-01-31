@@ -19,7 +19,8 @@ import java.util.concurrent.TimeoutException;
  * Created by anton on 29.12.2015.
  */
 public class Client {
-    public static final String HOST = "127.0.0.1";
+//    public static final String HOST = "game-server.transit.ru";
+    public static final String HOST = "localhost";
     public static final Integer PORT = 9998;
     private static final Integer MESSAGE_COUNT = 100;
     private static final Integer MESSAGE_LENGTH = 4;
